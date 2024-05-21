@@ -5,3 +5,4 @@ mod screenshot;
 
 pub use error::ScreenShotError;
 pub use screenshot::Capture;
+pub use screenshot::CaptureMethod;
