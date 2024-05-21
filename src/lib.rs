@@ -3,6 +3,7 @@
 mod capture;
 mod error;
 
+pub use capture::utils::CaptureMethod;
+pub use capture::utils::Cords;
 pub use capture::Capture;
-pub use capture::CaptureMethod;
 pub use error::ScreenShotError;

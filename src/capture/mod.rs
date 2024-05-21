@@ -3,14 +3,12 @@ use crate::error::Result;
 use self::{
     dda::{create_device, DDA},
     gdi::GDI,
-    utils::{Cords, Frame},
+    utils::{CaptureMethod, Cords, Frame},
 };
 
 mod dda;
 mod gdi;
-mod utils;
-
-pub use utils::CaptureMethod;
+pub mod utils;
 
 pub enum Capture {
     GDI { gdi: GDI },
