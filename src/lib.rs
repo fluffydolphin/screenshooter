@@ -1,8 +1,8 @@
 #![allow(clippy::upper_case_acronyms)]
 
+mod capture;
 mod error;
-mod screenshot;
 
+pub use capture::Capture;
+pub use capture::CaptureMethod;
 pub use error::ScreenShotError;
-pub use screenshot::Capture;
-pub use screenshot::CaptureMethod;
