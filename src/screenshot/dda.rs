@@ -24,7 +24,7 @@ use winapi::{
 };
 
 use crate::{
-    error::{Error, Result},
+    error::{Result, ScreenShotError},
     h_dda,
 };
 
@@ -117,12 +117,12 @@ impl DDA {
         loop {
             match self.get_frame_texture(self.cpu_texture as _) {
                 Ok(()) => break,
-                Err(Error::DDA {
+                Err(ScreenShotError::DDA {
                     hresult: DXGI_ERROR_ACCESS_LOST,
                     file: _,
                     line: _,
                 })
-                | Err(Error::DDA {
+                | Err(ScreenShotError::DDA {
                     hresult: DXGI_ERROR_INVALID_CALL,
                     file: _,
                     line: _,
@@ -146,19 +146,19 @@ impl DDA {
                 &mut mapped_res,
             )) {
                 Ok(()) => break,
-                Err(Error::DDA {
+                Err(ScreenShotError::DDA {
                     hresult: DXGI_ERROR_WAS_STILL_DRAWING,
                     file: _,
                     line: _,
                 }) => {
                     continue;
                 }
-                Err(Error::DDA {
+                Err(ScreenShotError::DDA {
                     hresult: DXGI_ERROR_ACCESS_LOST,
                     file: _,
                     line: _,
                 })
-                | Err(Error::DDA {
+                | Err(ScreenShotError::DDA {
                     hresult: DXGI_ERROR_INVALID_CALL,
                     file: _,
                     line: _,
@@ -199,7 +199,7 @@ impl DDA {
                 )
             ) {
                 Ok(()) => break,
-                Err(Error::DDA {
+                Err(ScreenShotError::DDA {
                     hresult: DXGI_ERROR_WAIT_TIMEOUT,
                     file: _,
                     line: _,

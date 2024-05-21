@@ -1,7 +1,7 @@
 use std::fmt;
 
 #[derive(Debug)]
-pub enum Error {
+pub enum ScreenShotError {
     DDA {
         hresult: i32,
         file: &'static str,
@@ -14,17 +14,17 @@ pub enum Error {
     },
 }
 
-impl fmt::Display for Error {
+impl fmt::Display for ScreenShotError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let message = match self {
-            Error::DDA {
+            ScreenShotError::DDA {
                 hresult,
                 file,
                 line,
             } => {
                 format!("HResult error: 0x{hresult:x} \nFile: {file}, Line: {line}")
             }
-            Error::GDI {
+            ScreenShotError::GDI {
                 last_error,
                 file,
                 line,
@@ -37,16 +37,16 @@ impl fmt::Display for Error {
     }
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for ScreenShotError {}
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, ScreenShotError>;
 
 #[macro_export]
 macro_rules! h_dda {
     ($hresult:expr) => {
         match $hresult {
             hresult if hresult == 0 => Ok(()),
-            hresult => Err(Error::DDA {
+            hresult => Err(ScreenShotError::DDA {
                 hresult,
                 file: file!(),
                 line: line!(),
@@ -59,7 +59,7 @@ macro_rules! h_dda {
 macro_rules! h_gdi {
     ($nonzero:expr) => {
         match $nonzero {
-            nonzero if nonzero == 0 => Err(Error::GDI {
+            nonzero if nonzero == 0 => Err(ScreenShotError::GDI {
                 last_error: GetLastError(),
                 file: file!(),
                 line: line!(),

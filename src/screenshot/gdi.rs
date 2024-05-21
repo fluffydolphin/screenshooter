@@ -8,7 +8,7 @@ use winapi::um::{
 };
 
 use crate::{
-    error::{Error, Result},
+    error::{Result, ScreenShotError},
     h_gdi,
 };
 

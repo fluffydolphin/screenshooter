@@ -3,5 +3,5 @@
 mod error;
 mod screenshot;
 
-pub use error::Error;
+pub use error::ScreenShotError;
 pub use screenshot::Capture;
