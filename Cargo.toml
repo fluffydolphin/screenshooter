@@ -1,0 +1,13 @@
+[package]
+name = "screenshooter"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+winapi = { version = "0.3.9", default-features = false, features = [
+    "d3d11",
+    "dxgi1_2",
+    "winerror",
+    "winuser",
+    "errhandlingapi",
+] }
