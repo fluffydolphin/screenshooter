@@ -2,6 +2,7 @@ use std::ops::Deref;
 
 use winapi::um::d3d11::D3D11_BOX;
 
+#[derive(Debug)]
 pub enum CaptureMethod {
     GDI,
     DDA,
@@ -61,6 +62,7 @@ impl From<Cords> for D3D11_BOX {
     }
 }
 
+#[derive(Debug)]
 pub enum Frame<'a> {
     OwnedData(Vec<u8>),
     BorrowedData(&'a [u8]),
