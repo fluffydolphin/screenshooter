@@ -11,3 +11,7 @@ winapi = { version = "0.3.9", default-features = false, features = [
     "winuser",
     "errhandlingapi",
 ] }
+image = { version = "0.25.2", default-features = false, optional = true }
+
+[features]
+save = ["image"]

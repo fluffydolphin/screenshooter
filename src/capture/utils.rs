@@ -68,6 +68,33 @@ pub enum Frame<'a> {
     BorrowedData(&'a [u8]),
 }
 
+#[cfg(feature = "save")]
+impl<'a> Frame<'a> {
+    pub fn save(&self, path: &Path, width: u32, height: u32) -> Result<()> {
+        use crate::error::Result;
+        use image::RgbaImage;
+        use std::path::Path;
+
+        let frame = match self {
+            Frame::OwnedData(frame) => frame.as_slice(),
+            Frame::BorrowedData(frame) => frame,
+        };
+
+        let rgba = bgra_to_rgba(frame);
+        let image = RgbaImage::from_raw(width, height, rgba).unwrap();
+        image.save(path).unwrap();
+
+        Ok(())
+    }
+}
+
+#[cfg(feature = "save")]
+fn bgra_to_rgba(bgra: &[u8]) -> Vec<u8> {
+    bgra.chunks(4)
+        .flat_map(|chunk| vec![chunk[2], chunk[1], chunk[0], chunk[3]])
+        .collect()
+}
+
 impl Deref for Frame<'_> {
     type Target = [u8];
 

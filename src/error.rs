@@ -1,5 +1,8 @@
 use std::fmt;
 
+#[cfg(feature = "save")]
+use image::ImageError;
+
 #[derive(Debug)]
 pub enum ScreenShotError {
     DDA {
@@ -12,6 +15,9 @@ pub enum ScreenShotError {
         file: &'static str,
         line: u32,
     },
+
+    #[cfg(feature = "save")]
+    Save(ImageError),
 }
 
 impl fmt::Display for ScreenShotError {
@@ -31,6 +37,9 @@ impl fmt::Display for ScreenShotError {
             } => {
                 format!("GDI error: 0x{last_error:x} \nFile: {file}, Line: {line}")
             }
+
+            #[cfg(feature = "save")]
+            ScreenShotError::Save(error) => error.to_string(),
         };
 
         write!(f, "{message}")
