@@ -8,7 +8,7 @@ use winapi::um::{
 };
 
 use crate::{
-    error::{Result, ScreenShotError},
+    error::{ScreenShootError, ScreenShootResult},
     h_gdi,
 };
 
@@ -22,7 +22,7 @@ pub struct GDI {
 }
 
 impl GDI {
-    pub unsafe fn new(cords: Cords) -> Result<Self> {
+    pub unsafe fn new(cords: Cords) -> ScreenShootResult<Self> {
         let screen_dc = h_gdi!(GetDC(GetDesktopWindow()) as usize)?;
 
         let memory_dc = h_gdi!(CreateCompatibleDC(screen_dc as _) as usize)?;
@@ -43,7 +43,7 @@ impl GDI {
         })
     }
 
-    pub unsafe fn capture_frame(&self) -> Result<Vec<u8>> {
+    pub unsafe fn capture_frame(&self) -> ScreenShootResult<Vec<u8>> {
         h_gdi!(BitBlt(
             self.memory_dc as _,
             0,

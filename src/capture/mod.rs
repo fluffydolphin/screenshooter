@@ -1,4 +1,4 @@
-use crate::error::Result;
+use crate::error::ScreenShootResult;
 
 use self::{
     dda::{create_device, DDA},
@@ -16,7 +16,7 @@ pub enum Capture {
 }
 
 impl Capture {
-    pub fn new(method: CaptureMethod, cords: Cords) -> Result<Self> {
+    pub fn new(method: CaptureMethod, cords: Cords) -> ScreenShootResult<Self> {
         unsafe {
             match method {
                 CaptureMethod::GDI => Ok(Capture::GDI {
@@ -32,7 +32,7 @@ impl Capture {
         }
     }
 
-    pub fn capture_frame(&mut self) -> Result<Frame> {
+    pub fn capture_frame(&mut self) -> ScreenShootResult<Frame> {
         unsafe {
             match self {
                 Capture::GDI { gdi } => Ok(Frame::OwnedData(gdi.capture_frame()?)),

@@ -1,4 +1,4 @@
-use std::{mem, ptr};
+use std::{mem, ptr, time::Instant};
 
 use winapi::{
     shared::{
@@ -14,9 +14,9 @@ use winapi::{
     um::{
         d3d11::{
             D3D11CreateDevice, ID3D11Device, ID3D11DeviceContext, ID3D11Resource, ID3D11Texture2D,
-            D3D11_CPU_ACCESS_READ, D3D11_CREATE_DEVICE_DEBUG, D3D11_MAPPED_SUBRESOURCE,
-            D3D11_MAP_FLAG_DO_NOT_WAIT, D3D11_MAP_READ, D3D11_SDK_VERSION, D3D11_TEXTURE2D_DESC,
-            D3D11_USAGE_STAGING,
+            D3D11_CPU_ACCESS_READ, D3D11_CREATE_DEVICE_DEBUG, D3D11_CREATE_DEVICE_SINGLETHREADED,
+            D3D11_MAPPED_SUBRESOURCE, D3D11_MAP_FLAG_DO_NOT_WAIT, D3D11_MAP_READ,
+            D3D11_SDK_VERSION, D3D11_TEXTURE2D_DESC, D3D11_USAGE_STAGING,
         },
         d3dcommon::D3D_DRIVER_TYPE_HARDWARE,
     },
@@ -24,13 +24,13 @@ use winapi::{
 };
 
 use crate::{
-    error::{Result, ScreenShotError},
+    error::{ScreenShootError, ScreenShootResult},
     h_dda,
 };
 
 use super::utils::Cords;
 
-pub unsafe fn create_device() -> Result<(*mut ID3D11Device, *mut ID3D11DeviceContext)> {
+pub unsafe fn create_device() -> ScreenShootResult<(*mut ID3D11Device, *mut ID3D11DeviceContext)> {
     let mut device = ptr::null_mut();
     let mut context = ptr::null_mut();
 
@@ -38,7 +38,7 @@ pub unsafe fn create_device() -> Result<(*mut ID3D11Device, *mut ID3D11DeviceCon
         ptr::null_mut(),
         D3D_DRIVER_TYPE_HARDWARE,
         ptr::null_mut(),
-        D3D11_CREATE_DEVICE_DEBUG,
+        D3D11_CREATE_DEVICE_SINGLETHREADED,
         ptr::null(),
         0,
         D3D11_SDK_VERSION,
@@ -64,25 +64,8 @@ impl DDA {
         device: *mut ID3D11Device,
         context: *mut ID3D11DeviceContext,
         cords: Cords,
-    ) -> Result<Self> {
-        let mut device2 = ptr::null_mut();
-        h_dda!((*device).QueryInterface(&IDXGIDevice::uuidof(), &mut device2))?;
-
-        let mut adapter = ptr::null_mut();
-        h_dda!((*(device2 as *mut IDXGIDevice)).GetParent(&IDXGIAdapter::uuidof(), &mut adapter))?;
-
-        let mut output = ptr::null_mut();
-        h_dda!((*(adapter as *mut IDXGIAdapter)).EnumOutputs(0, &mut output))?;
-
-        let mut output1 = ptr::null_mut();
-        h_dda!((*output).QueryInterface(&IDXGIOutput1::uuidof(), &mut output1))?;
-
-        let mut out_dup = ptr::null_mut();
-        h_dda!((*(output1 as *mut IDXGIOutput1)).DuplicateOutput(device as _, &mut out_dup))?;
-
-        (*(output1 as *mut IDXGIOutput1)).Release();
-        (*output).Release();
-        (*(device2 as *mut IDXGIDevice)).Release();
+    ) -> ScreenShootResult<Self> {
+        let out_dup = DDA::duplicate_output(device)?;
 
         let cpu_desc = D3D11_TEXTURE2D_DESC {
             Width: cords.fov_x,
@@ -106,36 +89,58 @@ impl DDA {
         Ok(Self {
             device: device as usize,
             context: context as usize,
-            out_dup: out_dup as usize,
+            out_dup,
             frame_lock: false,
             cpu_texture: cpu_texture as usize,
             cords,
         })
     }
 
-    pub unsafe fn get_frame_pixels(&mut self) -> Result<&[u8]> {
+    pub unsafe fn duplicate_output(device: *mut ID3D11Device) -> ScreenShootResult<usize> {
+        let mut device2 = ptr::null_mut();
+        h_dda!((*device).QueryInterface(&IDXGIDevice::uuidof(), &mut device2))?;
+
+        let mut adapter = ptr::null_mut();
+        h_dda!((*(device2 as *mut IDXGIDevice)).GetParent(&IDXGIAdapter::uuidof(), &mut adapter))?;
+
+        let mut output = ptr::null_mut();
+        h_dda!((*(adapter as *mut IDXGIAdapter)).EnumOutputs(0, &mut output))?;
+
+        let mut output1 = ptr::null_mut();
+        h_dda!((*output).QueryInterface(&IDXGIOutput1::uuidof(), &mut output1))?;
+
+        let mut out_dup = ptr::null_mut();
+        h_dda!((*(output1 as *mut IDXGIOutput1)).DuplicateOutput(device as _, &mut out_dup))?;
+
+        (*(output1 as *mut IDXGIOutput1)).Release();
+        (*output).Release();
+        (*(device2 as *mut IDXGIDevice)).Release();
+
+        Ok(out_dup as usize)
+    }
+
+    pub unsafe fn get_frame_pixels(&mut self) -> ScreenShootResult<&[u8]> {
         loop {
             match self.get_frame_texture(self.cpu_texture as _) {
                 Ok(()) => break,
-                Err(ScreenShotError::DDA {
+                Err(ScreenShootError::DDA {
                     hresult: DXGI_ERROR_ACCESS_LOST,
                     file: _,
                     line: _,
                 })
-                | Err(ScreenShotError::DDA {
+                | Err(ScreenShootError::DDA {
                     hresult: DXGI_ERROR_INVALID_CALL,
                     file: _,
                     line: _,
                 }) => {
-                    self.release();
-                    let (d11_device, d11_context) = create_device()?;
-                    *self = DDA::new(d11_device, d11_context, self.cords)?;
+                    (*(self.out_dup as *mut IDXGIOutputDuplication)).Release();
+                    self.out_dup = DDA::duplicate_output(self.device as _)?;
                     continue;
                 }
                 Err(e) => return Err(e),
             };
         }
-
+        //let tmp = Instant::now();
         let mut mapped_res = mem::zeroed::<D3D11_MAPPED_SUBRESOURCE>();
         loop {
             match h_dda!((*(self.context as *mut ID3D11DeviceContext)).Map(
@@ -146,25 +151,25 @@ impl DDA {
                 &mut mapped_res,
             )) {
                 Ok(()) => break,
-                Err(ScreenShotError::DDA {
+                Err(ScreenShootError::DDA {
                     hresult: DXGI_ERROR_WAS_STILL_DRAWING,
                     file: _,
                     line: _,
                 }) => {
                     continue;
                 }
-                Err(ScreenShotError::DDA {
+                Err(ScreenShootError::DDA {
                     hresult: DXGI_ERROR_ACCESS_LOST,
                     file: _,
                     line: _,
                 })
-                | Err(ScreenShotError::DDA {
+                | Err(ScreenShootError::DDA {
                     hresult: DXGI_ERROR_INVALID_CALL,
                     file: _,
                     line: _,
                 }) => {
-                    self.release();
-                    *self = DDA::new(self.device as _, self.context as _, self.cords)?;
+                    (*(self.out_dup as *mut IDXGIOutputDuplication)).Release();
+                    self.out_dup = DDA::duplicate_output(self.device as _)?;
                     continue;
                 }
                 Err(e) => {
@@ -172,7 +177,7 @@ impl DDA {
                 }
             }
         }
-
+        //println!("{:?}", tmp.elapsed());
         (*(self.context as *mut ID3D11DeviceContext)).Unmap(self.cpu_texture as _, 0);
 
         Ok(std::slice::from_raw_parts(
@@ -181,7 +186,7 @@ impl DDA {
         ))
     }
 
-    unsafe fn get_frame_texture(&mut self, texture: *mut ID3D11Texture2D) -> Result<()> {
+    unsafe fn get_frame_texture(&mut self, texture: *mut ID3D11Texture2D) -> ScreenShootResult<()> {
         if self.frame_lock {
             (*(self.out_dup as *mut IDXGIOutputDuplication)).ReleaseFrame();
             self.frame_lock = false
@@ -189,17 +194,17 @@ impl DDA {
 
         let mut frame_info = mem::zeroed::<DXGI_OUTDUPL_FRAME_INFO>();
         let mut desktop_res = ptr::null_mut();
-
+        //let tmp = Instant::now();
         loop {
             match h_dda!(
                 (*(self.out_dup as *mut IDXGIOutputDuplication)).AcquireNextFrame(
-                    99999,
+                    0,
                     &mut frame_info,
                     &mut desktop_res
                 )
             ) {
                 Ok(()) => break,
-                Err(ScreenShotError::DDA {
+                Err(ScreenShootError::DDA {
                     hresult: DXGI_ERROR_WAIT_TIMEOUT,
                     file: _,
                     line: _,
@@ -208,7 +213,7 @@ impl DDA {
             }
         }
         self.frame_lock = true;
-
+        //println!("{:?}", tmp.elapsed());
         let mut desktop_image = ptr::null_mut();
         h_dda!((*desktop_res).QueryInterface(&ID3D11Resource::uuidof(), &mut desktop_image))?;
 

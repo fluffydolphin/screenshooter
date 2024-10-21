@@ -69,11 +69,13 @@ pub enum Frame<'a> {
 }
 
 #[cfg(feature = "save")]
+use crate::error::ScreenShootResult;
+
+#[cfg(feature = "save")]
 impl<'a> Frame<'a> {
-    pub fn save(&self, path: &Path, width: u32, height: u32) -> Result<()> {
-        use crate::error::Result;
+    pub fn save(&self, path: &str, width: u32, height: u32) -> ScreenShootResult<()> {
+        use crate::error::ScreenShootError;
         use image::RgbaImage;
-        use std::path::Path;
 
         let frame = match self {
             Frame::OwnedData(frame) => frame.as_slice(),
@@ -81,8 +83,9 @@ impl<'a> Frame<'a> {
         };
 
         let rgba = bgra_to_rgba(frame);
-        let image = RgbaImage::from_raw(width, height, rgba).unwrap();
-        image.save(path).unwrap();
+        let image = RgbaImage::from_raw(width, height, rgba)
+            .unwrap_or(ScreenShootError::Save("Failed to Build Image"));
+        image.save(path)?;
 
         Ok(())
     }

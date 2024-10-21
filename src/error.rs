@@ -4,7 +4,7 @@ use std::fmt;
 use image::ImageError;
 
 #[derive(Debug)]
-pub enum ScreenShotError {
+pub enum ScreenShootError {
     DDA {
         hresult: i32,
         file: &'static str,
@@ -17,20 +17,27 @@ pub enum ScreenShotError {
     },
 
     #[cfg(feature = "save")]
-    Save(ImageError),
+    Save(String),
 }
 
-impl fmt::Display for ScreenShotError {
+#[cfg(feature = "save")]
+impl From<ImageError> for ScreenShootError {
+    fn from(value: ImageError) -> Self {
+        ScreenShootError::Save(value.to_string())
+    }
+}
+
+impl fmt::Display for ScreenShootError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let message = match self {
-            ScreenShotError::DDA {
+            ScreenShootError::DDA {
                 hresult,
                 file,
                 line,
             } => {
                 format!("HResult error: 0x{hresult:x} \nFile: {file}, Line: {line}")
             }
-            ScreenShotError::GDI {
+            ScreenShootError::GDI {
                 last_error,
                 file,
                 line,
@@ -39,23 +46,23 @@ impl fmt::Display for ScreenShotError {
             }
 
             #[cfg(feature = "save")]
-            ScreenShotError::Save(error) => error.to_string(),
+            ScreenShootError::Save(error) => error,
         };
 
         write!(f, "{message}")
     }
 }
 
-impl std::error::Error for ScreenShotError {}
+impl std::error::Error for ScreenShootError {}
 
-pub type Result<T> = std::result::Result<T, ScreenShotError>;
+pub type ScreenShootResult<T> = std::result::Result<T, ScreenShootError>;
 
 #[macro_export]
 macro_rules! h_dda {
     ($hresult:expr) => {
         match $hresult {
             hresult if hresult == 0 => Ok(()),
-            hresult => Err(ScreenShotError::DDA {
+            hresult => Err(ScreenShootError::DDA {
                 hresult,
                 file: file!(),
                 line: line!(),
@@ -68,7 +75,7 @@ macro_rules! h_dda {
 macro_rules! h_gdi {
     ($nonzero:expr) => {
         match $nonzero {
-            nonzero if nonzero == 0 => Err(ScreenShotError::GDI {
+            nonzero if nonzero == 0 => Err(ScreenShootError::GDI {
                 last_error: GetLastError(),
                 file: file!(),
                 line: line!(),
